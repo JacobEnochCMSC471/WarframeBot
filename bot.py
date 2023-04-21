@@ -4,8 +4,10 @@ import os
 from dotenv import load_dotenv
 import logging
 from pymongo import MongoClient
+from pymongo import errors
 import utility
 
+# Necessary stuff that needs to be loaded in before anything can be
 load_dotenv()
 token = os.getenv("API_KEY")
 guild_id = os.getenv("GUILD_KEY")
@@ -15,12 +17,12 @@ try:
     db_client = MongoClient("mongodb://localhost:27017/")
     relic_db = db_client['WarframeRelics']
 
-    axi_collection = relic_db.get_collection("Axi")
+    axi_collection = relic_db.get_collection("Balls")
     neo_collection = relic_db.get_collection("Neo")
     meso_collection = relic_db.get_collection("Meso")
     lith_collection = relic_db.get_collection("Lith")
 
-except:
+except errors.ConnectionFailure:
     print(
         "Database likely not connected or configured correctly. Please modify connection settings or make sure you have MongoDB and a server running with the required data.")
     exit(0)
@@ -47,8 +49,10 @@ tree = app_commands.CommandTree(client)
 
 @tree.command(name="relic_request", guild=discord.Object(guild_id), description="Look up what relics are needed for primed items!")
 async def relic_request(interaction: discord.Interaction, item: str):
-    # Make sure that the entered text only consists of characters
-    if all(x.isalpha() or x.isspace() for x in item):
+    # Make sure that the entered text only consists of characters or spaces
+    if all(char.isalpha() or char.isspace() for char in item):
+
+        # As long as the user input is only characters, query collections for requested item
         userQuery = {'rewards.Intact.itemName': item}
         axiQueryResult = axi_collection.find(userQuery)
         neoQueryResult = neo_collection.find(userQuery)
@@ -58,6 +62,7 @@ async def relic_request(interaction: discord.Interaction, item: str):
         combinedQueries = [axiQueryResult, neoQueryResult, mesoQueryResult, lithQueryResult]
         relicList = []
 
+        # Pull out item name, relic tier and relic name from queries, store in list
         for queryResult in combinedQueries:
             for indvResult in queryResult:
                 itemIndex = utility.search_list(indvResult['rewards']['Intact'], item)
@@ -67,8 +72,9 @@ async def relic_request(interaction: discord.Interaction, item: str):
 
                 relicList.append({'tier': tempTier, 'name': tempName, 'itemName': tempItemName})
 
-        botRelicResponse = '-----Relics Needed For {}-----\n'.format(relicList[0]['itemName'])
+        botRelicResponse = '**-----Relics Needed For {}-----**\n'.format(relicList[0]['itemName'])
 
+        # Append relic tiers/names to string that will be displayed to users
         for item in relicList:
             relicText = "{} {}\n".format(item['tier'], item['name'])
             botRelicResponse += relicText
