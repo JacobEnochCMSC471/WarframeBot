@@ -49,10 +49,20 @@ def get_user_query(query: str, collections: list):
     if len(query) < 4:
         return 'Please enter a query that contains more than 4 characters.\n'
 
-    elif (query == 'prime') or (query == 'Prime'):
+    elif (query == 'prime') or (query == 'Prime') or (len(query) == 5 and 'prime' in query):
         return 'Please do not try to query the whole database! Thank you!\n'
 
+    # Make sure that the user-entered query has first words capitalized to ensure accurate querying
+    split_query = query.split()
+
+    for index, word in enumerate(split_query):
+        split_query[index] = word.capitalize()
+
+    query = ' '.join(split_query)
+
     # As long as the user input is only characters, query collections for requested item
+    # Regex allows a partial query to occur -> can search "Spira" instead of the full "Spira Prime Blade"
+    # Also allows users to find out what they need for all items of an item set instead of individually querying
     userQuery = {'rewards.Intact.itemName': {'$regex': query}}
     combinedQueries = []
 
@@ -95,39 +105,36 @@ def get_user_query(query: str, collections: list):
 
         search_results += '\n'
 
-    print(search_results)
-
-    '''
-    relicList = []
-
-    # Pull out item name, relic tier and relic name from queries, store in list
-    for queryResult in combinedQueries:
-        for indvResult in queryResult:
-            itemIndex = search_list(indvResult['rewards']['Intact'], query)
-            tempItemName = indvResult['rewards']['Intact'][itemIndex]['itemName']
-            tempTier = indvResult['tier']
-            tempName = indvResult['name']
-
-            relicList.append({'tier': tempTier, 'name': tempName, 'itemName': tempItemName})
-
-    botRelicResponse = '**-----Relics Needed For {}-----**\n'.format(relicList[0]['itemName'])
-
-    # Append relic tiers/names to string that will be displayed to users
-    for item in relicList:
-        relicText = "{} {}\n".format(item['tier'], item['name'])
-        botRelicResponse += relicText
-    '''
     return search_results
+
+
+# Read a list of unvaulted relics
+def read_unvaulted_relics(filepath: str):
+    if type(filepath) is not str:
+        raise Exception('Filepath is not a string.')
+    try:
+        unvaulted_list = open(filepath, 'r')
+        relic_list = []
+
+        for line in unvaulted_list:
+            relic_list.append(line.strip('\n'))
+
+        return relic_list
+
+    except FileNotFoundError as e:
+        print('File not found. Please double-check the filepath that was entered and ensure that the "unvaulted.txt" file exists.')
+        print(e)
+
 
 
 def main():
     db_client = MongoClient("mongodb://localhost:27017/")
     relic_db = db_client['WarframeRelics']
     relic_collections = populate_collections_list(relic_db)
+    # test_results = get_user_query('spira', relic_collections)
+    filepath = 'unvaulted.txt'
 
-    test_results = get_user_query('prime', relic_collections)
-
-    print(test_results)
+    read_unvaulted_relics(filepath)
 
 
 main()
